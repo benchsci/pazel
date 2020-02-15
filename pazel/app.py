@@ -6,17 +6,19 @@ from __future__ import print_function
 
 import argparse
 import os
+import json
 
 from pazel.generate_rule import parse_script_and_generate_rule
 from pazel.helpers import get_build_file_path
 from pazel.helpers import is_ignored
 from pazel.helpers import is_python_file
+from pazel.helpers import extract_dependencies
 from pazel.output_build import output_build_file
 from pazel.parse_build import get_ignored_rules
 from pazel.pazel_extensions import parse_pazel_extensions
 
 
-def app(input_path, project_root, contains_pre_installed_packages, pazelrc_path):
+def app(input_path, project_root, contains_pre_installed_packages, pazelrc_path, pipfile):
     """Generate BUILD file(s) for a Python script or a directory of Python scripts.
 
     Args:
@@ -33,6 +35,8 @@ def app(input_path, project_root, contains_pre_installed_packages, pazelrc_path)
     # Parse user-defined extensions to pazel.
     output_extension, custom_bazel_rules, custom_import_inference_rules, import_name_to_pip_name, \
         local_import_name_to_dep, requirement_load = parse_pazel_extensions(pazelrc_path)
+    data = json.load(open(pipfile))
+    pipenv_packages =  extract_dependencies(data)
 
     # Handle directories.
     if os.path.isdir(input_path):
@@ -42,6 +46,8 @@ def app(input_path, project_root, contains_pre_installed_packages, pazelrc_path)
 
             # Parse ignored rules in an existing BUILD file, if any.
             build_file_path = get_build_file_path(dirpath)
+            if os.path.exists(build_file_path):
+                continue
             ignored_rules = get_ignored_rules(build_file_path)
 
             for filename in sorted(filenames):
@@ -55,14 +61,15 @@ def app(input_path, project_root, contains_pre_installed_packages, pazelrc_path)
                                                               custom_bazel_rules,
                                                               custom_import_inference_rules,
                                                               import_name_to_pip_name,
-                                                              local_import_name_to_dep)
+                                                              local_import_name_to_dep, pipenv_packages)
 
                     # Add the new rule and a newline between it and any previous rules.
                     if new_rule:
                         if build_source:
                             build_source += 2*'\n'
 
-                        build_source += new_rule
+                        for rule in new_rule:
+                            build_source += rule + 2*'\n'
 
             # If Python files were found, output the BUILD file.
             if build_source != '' or ignored_rules:
@@ -83,7 +90,7 @@ def app(input_path, project_root, contains_pre_installed_packages, pazelrc_path)
                                                           custom_bazel_rules,
                                                           custom_import_inference_rules,
                                                           import_name_to_pip_name,
-                                                          local_import_name_to_dep)
+                                                          local_import_name_to_dep, pipenv_packages)
 
         # If Python files were found, output the BUILD file.
         if build_source != '' or ignored_rules:
@@ -99,6 +106,9 @@ def main():
 
     working_directory = os.getcwd()
     default_pazelrc_path = os.path.join(working_directory, '.pazelrc')
+    pipfile = os.path.join(working_directory, 'Pipfile.lock.json')
+    if not os.path.exists(pipfile):
+        raise Exception("create Pipfile.lock.json from pipenv graph --json-tree")
 
     parser.add_argument('input_path', nargs='?', type=str, default=working_directory,
                         help='Target Python file or directory of Python files.'
@@ -111,6 +121,8 @@ def main():
                         ' Affects which packages are listed as pip-installable.')
     parser.add_argument('-c', '--pazelrc', type=str, default=default_pazelrc_path,
                         help='Path to .pazelrc file.')
+    parser.add_argument('-f', '--pipfile', type=str, default=pipfile,
+                        help='Path to Pipfile.lock.json file.')
 
     args = parser.parse_args()
 
@@ -120,7 +132,7 @@ def main():
     if custom_pazelrc_path:
         assert os.path.isfile(args.pazelrc), ".pazelrc file %s not found." % args.pazelrc
 
-    app(args.input_path, args.project_root, args.pre_installed_packages, args.pazelrc)
+    app(args.input_path, args.project_root, args.pre_installed_packages, args.pazelrc, args.pipfile)
     print('Generated BUILD files for %s.' % args.input_path)
 
 

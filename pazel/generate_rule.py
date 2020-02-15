@@ -11,6 +11,7 @@ from pazel.parse_build import find_existing_data_deps
 from pazel.parse_build import find_existing_test_size
 from pazel.parse_imports import get_imports
 from pazel.parse_imports import infer_import_type
+from pazel.helpers import _is_in_stdlib
 
 
 def _walk_modules(current_dir, modules):
@@ -75,7 +76,7 @@ def sort_module_names(module_names):
 
 
 def generate_rule(script_path, template, package_names, module_names, data_deps, test_size,
-                  import_name_to_pip_name, local_import_name_to_dep):
+                  import_name_to_pip_name, local_import_name_to_dep, pipenv_packages):
     """Generate a Bazel Python rule given the type of the Python file and imports in it.
 
     Args:
@@ -137,6 +138,7 @@ def generate_rule(script_path, template, package_names, module_names, data_deps,
     local_packages = [p for p in package_names if p in local_import_name_to_dep]
     external_packages = [p for p in package_names if p not in local_import_name_to_dep]
 
+    package_name_deps = []
     for package_set in (local_packages, external_packages):     # List local packages first.
         for package_name in sorted(list(package_set)):
             if multiple_deps:
@@ -145,13 +147,28 @@ def generate_rule(script_path, template, package_names, module_names, data_deps,
             if package_name in local_import_name_to_dep:    # Local package.
                 package_name = local_import_name_to_dep[package_name]
                 deps += '\"' + package_name + '\"'
+                if multiple_deps:
+                    deps += ',\n'
             else:   # External/pip installable package.
                 package_name = import_name_to_pip_name.get(package_name, package_name)
-                package_name = 'requirement(\"%s\")' % package_name
-                deps += package_name
+                if "pytype" in template:
+                    package_name_deps.append(package_name)
+                else:
+                    package_name_deps.extend(pipenv_packages[package_name])
 
-            if multiple_deps:
-                deps += ',\n'
+
+
+    package_name_deps = [import_name_to_pip_name.get(package_name, package_name) for package_name in package_name_deps]
+    if package_name_deps:
+        for package_name in sorted(set(package_name_deps)):
+            package_name = import_name_to_pip_name.get(package_name, package_name)
+            if _is_in_stdlib(package_name, some_object=None):
+                continue
+            if package_name == 'typing-extensions':
+                # Hack waiting for beam to depricate python 2
+                continue
+            package_name = 2*tab+'requirement(\"%s\")' % package_name
+            deps += package_name + ',\n'
 
     if multiple_deps:
         deps += tab
@@ -171,7 +188,7 @@ def generate_rule(script_path, template, package_names, module_names, data_deps,
 
 def parse_script_and_generate_rule(script_path, project_root, contains_pre_installed_packages,
                                    custom_bazel_rules, custom_import_inference_rules,
-                                   import_name_to_pip_name, local_import_name_to_dep):
+                                   import_name_to_pip_name, local_import_name_to_dep, pipenv_packages):
     """Generate Bazel Python rule for a Python script.
 
     Args:
@@ -202,15 +219,18 @@ def parse_script_and_generate_rule(script_path, project_root, contains_pre_insta
                                                     custom_import_inference_rules)
 
     # Infer the Bazel rule type for the script.
-    bazel_rule_type = infer_bazel_rule_type(script_path, script_source, custom_bazel_rules)
+    rules = []
+    bazel_rule_types = infer_bazel_rule_type(script_path, script_source, custom_bazel_rules)
+    for bazel_rule_type in bazel_rule_types:
 
-    # Data dependencies or test size cannot be inferred from the script source code currently.
-    # Use information in any existing BUILD files.
-    data_deps = find_existing_data_deps(script_path, bazel_rule_type)
-    test_size = find_existing_test_size(script_path, bazel_rule_type)
+        # Data dependencies or test size cannot be inferred from the script source code currently.
+        # Use information in any existing BUILD files.
+        data_deps = find_existing_data_deps(script_path, bazel_rule_type)
+        test_size = find_existing_test_size(script_path, bazel_rule_type)
 
-    # Generate the Bazel Python rule based on the gathered information.
-    rule = generate_rule(script_path, bazel_rule_type.template, package_names, module_names,
-                         data_deps, test_size, import_name_to_pip_name, local_import_name_to_dep)
+        # Generate the Bazel Python rule based on the gathered information.
+        rule = generate_rule(script_path, bazel_rule_type.template, package_names, module_names,
+                             data_deps, test_size, import_name_to_pip_name, local_import_name_to_dep, pipenv_packages)
+        rules.append(rule)
 
-    return rule
+    return rules
