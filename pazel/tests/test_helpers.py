@@ -43,6 +43,8 @@ class TestHelpers(unittest.TestCase):
         data = json.load(open(Path(Path(__file__).parent, "Pipfile.lock.json")))
         data = extract_dependencies(data)
         assert "packaging" in data["pytest"]
+        for value in data:
+            assert value in data[value]
 
 
 if __name__ == '__main__':

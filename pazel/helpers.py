@@ -220,9 +220,17 @@ def parse_enclosed_expression(source, start, opening_token):
 def extract_dependencies(data):
     packages = {}
     for d in data:
-        package_name = d.get('package').get("package_name")
-        all_deps = [n.get("package_name") for n in d.get('dependencies')]
-        # add original package_name
-        all_deps.append(package_name)
+        package_name = d.get('package').get("key")
+        all_deps = [n.get("key") for n in d.get('dependencies')]
         packages[package_name] = all_deps
+        # add original package_name
+    # add dependencies of dependency to package
+
+    _packages = packages.copy()
+    for key, values in _packages.items():
+        for value in values:
+            transivive_dependency = packages.get(value, [])
+            packages[key].extend(transivive_dependency)
+    for key, values in packages.items():
+        packages[key].append(key)
     return packages
