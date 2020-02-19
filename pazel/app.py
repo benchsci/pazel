@@ -46,7 +46,7 @@ def app(input_path, project_root, contains_pre_installed_packages, pazelrc_path,
             # Parse ignored rules in an existing BUILD file, if any.
             build_file_path = get_build_file_path(dirpath)
             if os.path.exists(build_file_path):
-                pass
+                continue
             ignored_rules = get_ignored_rules(build_file_path)
 
             for filename in sorted(filenames):
