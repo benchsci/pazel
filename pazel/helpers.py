@@ -217,14 +217,33 @@ def parse_enclosed_expression(source, start, opening_token):
     return expression
 
 
-def extract_dependencies(data):
+def extract_dependencies(filepath):
+    data = []  # create an empty list to collect the data
+    # open the file and read through it line by line
+    all_packages = []
+    with open(filepath, "r") as file_object:
+        line = file_object.readline()
+        while line:
+
+            # extract school name
+            if "==" in line:
+                package = line.split("==")[0]
+                all_packages.append(package)
+
+            if "# via" in line:
+                data.append(
+                    {"key": package,
+                     "package": list(map(str.strip, line.split("# via")[-1].split(",")))})
+            line = file_object.readline()
     packages = {}
-    for d in data:
-        package_name = d.get('package').get("key")
-        all_deps = [n.get("key") for n in d.get('dependencies')]
-        packages[package_name] = all_deps
-        # add original package_name
-    # add dependencies of dependency to package
+    for entry in data:
+        dep = entry.get("key")
+        package = entry.get("package")
+        for p in package:
+            if p in packages:
+                packages[p].append(dep)
+            else:
+                packages[p] = [dep]
 
     _packages = packages.copy()
     for key, values in _packages.items():
@@ -233,4 +252,12 @@ def extract_dependencies(data):
             packages[key].extend(transivive_dependency)
     for key, values in packages.items():
         packages[key].append(key)
+        packages[key] = list(set(packages[key]))
+
+    for package in all_packages:
+        if package not in packages:
+            packages[package] = [package]
+    import json
+    with open("package.json", "w") as fl:
+        json.dump(packages, fl)
     return packages
