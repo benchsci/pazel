@@ -35,8 +35,7 @@ def app(input_path, project_root, contains_pre_installed_packages, pazelrc_path,
     # Parse user-defined extensions to pazel.
     output_extension, custom_bazel_rules, custom_import_inference_rules, import_name_to_pip_name, \
         local_import_name_to_dep, requirement_load = parse_pazel_extensions(pazelrc_path)
-    data = json.load(open(pipfile))
-    pipenv_packages =  extract_dependencies(data)
+    pipenv_packages =  extract_dependencies(pipfile)
 
     # Handle directories.
     if os.path.isdir(input_path):
@@ -47,7 +46,7 @@ def app(input_path, project_root, contains_pre_installed_packages, pazelrc_path,
             # Parse ignored rules in an existing BUILD file, if any.
             build_file_path = get_build_file_path(dirpath)
             if os.path.exists(build_file_path):
-                continue
+                pass
             ignored_rules = get_ignored_rules(build_file_path)
 
             for filename in sorted(filenames):
@@ -106,9 +105,9 @@ def main():
 
     working_directory = os.getcwd()
     default_pazelrc_path = os.path.join(working_directory, '.pazelrc')
-    pipfile = os.path.join(working_directory, 'Pipfile.lock.json')
+    pipfile = os.path.join(working_directory, 'requirements.txt')
     if not os.path.exists(pipfile):
-        raise Exception("create Pipfile.lock.json from pipenv graph --json-tree")
+        raise Exception("create requirements.txt using pip-compile tool")
 
     parser.add_argument('input_path', nargs='?', type=str, default=working_directory,
                         help='Target Python file or directory of Python files.'
