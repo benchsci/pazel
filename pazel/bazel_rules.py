@@ -83,9 +83,11 @@ class PyBinaryRule(BazelRule):
     """Class for representing Bazel-native py_binary."""
 
     # Required class variables.
-    is_test_rule = False    # Is this a test rule?
-    template = PY_BINARY_TEMPLATE   # Filled version of this will be written to the BUILD file.
-    rule_identifier = 'py_binary'   # The name of the rule.
+    is_test_rule = False  # Is this a test rule?
+    template = (
+        PY_BINARY_TEMPLATE  # Filled version of this will be written to the BUILD file.
+    )
+    rule_identifier = "py_binary"  # The name of the rule.
 
     @staticmethod
     def applies_to(script_name, script_source):
@@ -99,8 +101,10 @@ class PyBinaryRule(BazelRule):
             applies (bool): Whether this Bazel rule can be used to represent the script.
         """
         # Check if there is indentation level 0 code that launches a function.
-        entrypoints = re.findall('\nif\s*__name__\s*==\s*["\']__main__["\']\s*:', script_source)
-        entrypoints += re.findall('\n\S+\([\S+]?\)', script_source)
+        entrypoints = re.findall(
+            "\nif\s*__name__\s*==\s*[\"']__main__[\"']\s*:", script_source
+        )
+        entrypoints += re.findall("\n\S+\([\S+]?\)", script_source)
 
         # Rule out tests using unittest.
         is_test = PyTestRule.applies_to(script_name, script_source)
@@ -114,9 +118,11 @@ class PyLibraryRule(BazelRule):
     """Class for representing Bazel-native py_library."""
 
     # Required class variables.
-    is_test_rule = False    # Is this a test rule?
-    template = PY_LIBRARY_TEMPLATE  # Filled version of this will be written to the BUILD file.
-    rule_identifier = 'py_library'  # The name of the rule.
+    is_test_rule = False  # Is this a test rule?
+    template = (
+        PY_LIBRARY_TEMPLATE  # Filled version of this will be written to the BUILD file.
+    )
+    rule_identifier = "py_library"  # The name of the rule.
 
     @staticmethod
     def applies_to(script_name, script_source):
@@ -141,9 +147,11 @@ class PyTestRule(BazelRule):
     """Class for representing Bazel-native py_test."""
 
     # Required class variables.
-    is_test_rule = True     # Is this a test rule?
-    template = PY_TEST_TEMPLATE     # Filled version of this will be written to the BUILD file.
-    rule_identifier = 'py_test'     # The name of the rule.
+    is_test_rule = True  # Is this a test rule?
+    template = (
+        PY_TEST_TEMPLATE  # Filled version of this will be written to the BUILD file.
+    )
+    rule_identifier = "py_test"  # The name of the rule.
 
     @staticmethod
     def applies_to(script_name, script_source):
@@ -156,11 +164,15 @@ class PyTestRule(BazelRule):
         Returns:
             applies (bool): Whether this Bazel rule can be used to represent the script.
         """
-        imports_unittest = len(re.findall('import unittest', script_source)) > 0 or \
-            len(re.findall('from unittest', script_source)) > 0
-        uses_unittest = len(re.findall('unittest.TestCase', script_source)) > 0 or \
-            len(re.findall('TestCase', script_source)) > 0
-        test_filename = script_name.startswith('test_') or script_name.endswith('_test')
+        imports_unittest = (
+            len(re.findall("import unittest", script_source)) > 0
+            or len(re.findall("from unittest", script_source)) > 0
+        )
+        uses_unittest = (
+            len(re.findall("unittest.TestCase", script_source)) > 0
+            or len(re.findall("TestCase", script_source)) > 0
+        )
+        test_filename = script_name.startswith("test_") or script_name.endswith("_test")
 
         applies = test_filename and imports_unittest and uses_unittest
 
@@ -169,7 +181,7 @@ class PyTestRule(BazelRule):
 
 def get_native_bazel_rules():
     """Return a copy of the pazel-native classes implementing BazelRule."""
-    return [PyBinaryRule, PyLibraryRule, PyTestRule]    # No custom classes here.
+    return [PyBinaryRule, PyLibraryRule, PyTestRule]  # No custom classes here.
 
 
 def infer_bazel_rule_type(script_path, script_source, custom_rules):
@@ -186,16 +198,16 @@ def infer_bazel_rule_type(script_path, script_source, custom_rules):
     Raises:
         RuntimeError: If zero or more than one Bazel rule is found for the current script.
     """
-    script_name = os.path.basename(script_path).replace('.py', '')
+    script_name = os.path.basename(script_path).replace(".py", "")
 
     bazel_rule_types = []
 
     native_rules = get_native_bazel_rules()
     registered_rules = native_rules + custom_rules
 
-    for bazel_rule in registered_rules:
-        if bazel_rule.applies_to(script_name, script_source):
-            bazel_rule_types.append(bazel_rule)
+    bazel_rule_types = [
+        r for r in custom_rules if r.applies_to(script_name, script_source)
+    ] or [r for r in native_rules if r.applies_to(script_name, script_source)]
 
     if not bazel_rule_types:
         raise RuntimeError("No suitable Bazel rule type found for %s." % script_path)
@@ -210,7 +222,9 @@ def infer_bazel_rule_type(script_path, script_source, custom_rules):
             custom_bazel_rule_idx = is_custom.index(True)
             return bazel_rule_types[custom_bazel_rule_idx]
         else:
-            raise RuntimeError("Multiple Bazel rule types (%s) found for %s."
-                               % (bazel_rule_types, script_path))
+            raise RuntimeError(
+                "Multiple Bazel rule types (%s) found for %s."
+                % (bazel_rule_types, script_path)
+            )
 
     return bazel_rule_types[0]

@@ -18,7 +18,7 @@ from pazel.parse_build import get_ignored_rules
 from pazel.pazel_extensions import parse_pazel_extensions
 
 
-def app(input_path, project_root, contains_pre_installed_packages, pazelrc_path, pipfile):
+def app(input_path, project_root, contains_pre_installed_packages, pazelrc_path, requirements_file):
     """Generate BUILD file(s) for a Python script or a directory of Python scripts.
 
     Args:
@@ -35,7 +35,7 @@ def app(input_path, project_root, contains_pre_installed_packages, pazelrc_path,
     # Parse user-defined extensions to pazel.
     output_extension, custom_bazel_rules, custom_import_inference_rules, import_name_to_pip_name, \
         local_import_name_to_dep, requirement_load = parse_pazel_extensions(pazelrc_path)
-    pipenv_packages =  extract_dependencies(pipfile)
+    pipenv_packages =  extract_dependencies(requirements_file)
 
     # Handle directories.
     if os.path.isdir(input_path):
@@ -46,7 +46,7 @@ def app(input_path, project_root, contains_pre_installed_packages, pazelrc_path,
             # Parse ignored rules in an existing BUILD file, if any.
             build_file_path = get_build_file_path(dirpath)
             if os.path.exists(build_file_path):
-                pass
+                continue
             ignored_rules = get_ignored_rules(build_file_path)
 
             for filename in sorted(filenames):
@@ -105,9 +105,7 @@ def main():
 
     working_directory = os.getcwd()
     default_pazelrc_path = os.path.join(working_directory, '.pazelrc')
-    pipfile = os.path.join(working_directory, 'requirements.txt')
-    if not os.path.exists(pipfile):
-        raise Exception("create requirements.txt using pip-compile tool")
+    requirements_file = os.path.join(working_directory, 'requirements.txt')
 
     parser.add_argument('input_path', nargs='?', type=str, default=working_directory,
                         help='Target Python file or directory of Python files.'
@@ -120,10 +118,12 @@ def main():
                         ' Affects which packages are listed as pip-installable.')
     parser.add_argument('-c', '--pazelrc', type=str, default=default_pazelrc_path,
                         help='Path to .pazelrc file.')
-    parser.add_argument('-f', '--pipfile', type=str, default=pipfile,
-                        help='Path to Pipfile.lock.json file.')
+    parser.add_argument('-f', '--requirements', type=str, default=requirements_file,
+                        help='Path to requirements.txt file.')
 
     args = parser.parse_args()
+    if not os.path.exists(args.requirements):
+        raise Exception("create requirements.txt using pip-compile tool")
 
     # If the user specified custom .pazelrc file, then check that it exists.
     custom_pazelrc_path = args.pazelrc != default_pazelrc_path
@@ -131,7 +131,7 @@ def main():
     if custom_pazelrc_path:
         assert os.path.isfile(args.pazelrc), ".pazelrc file %s not found." % args.pazelrc
 
-    app(args.input_path, args.project_root, args.pre_installed_packages, args.pazelrc, args.pipfile)
+    app(args.input_path, args.project_root, args.pre_installed_packages, args.pazelrc, args.requirements)
     print('Generated BUILD files for %s.' % args.input_path)
 
 
