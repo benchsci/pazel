@@ -166,10 +166,7 @@ def generate_rule(
                     deps += ",\n"
             else:  # External/pip installable package.
                 package_name = import_name_to_pip_name.get(package_name, package_name)
-                if "pytype" in template:
-                    package_name_deps.append(package_name)
-                else:
-                    package_name_deps.extend(pipenv_packages[package_name])
+                package_name_deps.extend(pipenv_packages[package_name])
 
     package_name_deps = [
         import_name_to_pip_name.get(package_name, package_name)

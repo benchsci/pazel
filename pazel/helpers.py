@@ -4,6 +4,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import json
 import ast
 import importlib
 import os
@@ -228,6 +229,7 @@ def extract_dependencies(filepath):
             # extract school name
             if "==" in line:
                 package = line.split("==")[0]
+                package = package.split("[")[0]
                 all_packages.append(package)
 
             if "# via" in line:
@@ -257,7 +259,6 @@ def extract_dependencies(filepath):
     for package in all_packages:
         if package not in packages:
             packages[package] = [package]
-    import json
     with open("package.json", "w") as fl:
         json.dump(packages, fl)
     return packages
