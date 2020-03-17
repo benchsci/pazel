@@ -40,9 +40,9 @@ class TestHelpers(unittest.TestCase):
 
         self.assertEqual(expression, expected_expression)
     def test_extranct_dependencies(self):
-        data = json.load(open(Path(Path(__file__).parent, "Pipfile.lock.json")))
-        data = extract_dependencies(data)
-        assert "packaging" in data["pytest"]
+        path = Path(Path(__file__).resolve().parent, "requirement.txt").as_posix()
+        data = extract_dependencies(path)
+        assert "tablib" in data["django-import-export"]
         for value in data:
             assert value in data[value]
 

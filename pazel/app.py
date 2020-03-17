@@ -61,6 +61,7 @@ def app(input_path, project_root, contains_pre_installed_packages, pazelrc_path,
                                                               custom_import_inference_rules,
                                                               import_name_to_pip_name,
                                                               local_import_name_to_dep, pipenv_packages)
+                    print(f"Generating build file for {path}")
 
                     # Add the new rule and a newline between it and any previous rules.
                     if new_rule:
